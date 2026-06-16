@@ -2702,6 +2702,9 @@ def run_training_process(*, event_queue: Any, stop_queue: Any, config: dict) -> 
 
         training_type = config.get("training_type", "LoRA/QLoRA")
         is_cpt = training_type == "Continued Pretraining"
+        is_s0 = training_type == "S0 Tuning"
+        is_muon = training_type == "Muon Optimizer"
+        is_grpo = training_type == "GRPO"
         use_lora = training_type in ("LoRA/QLoRA", "Continued Pretraining")
         cpt_trains_embeddings = False
 
@@ -2849,6 +2852,96 @@ def run_training_process(*, event_queue: Any, stop_queue: Any, config: dict) -> 
 
         # Start training directly — no inner thread, we ARE the subprocess.
         dataset_display = config.get("hf_dataset", "") or config.get("uploaded_file", "") or ""
+
+        # ── S0 Tuning: train recurrent states only (zero inference overhead) ──
+        if is_s0:
+            _send_status(event_queue, "S0 Tuning: training recurrent layer states...")
+            import torch
+            from pathlib import Path as S0Path
+
+            s0_output_dir = output_dir
+            s0_states_path = S0Path(s0_output_dir) / "s0_states.pt"
+
+            try:
+                model = trainer.model
+                s0_layers = []
+                for name, module in model.named_modules():
+                    if hasattr(module, "state_weight") or "recurrent" in name.lower():
+                        s0_layers.append((name, module))
+
+                if not s0_layers:
+                    for name, module in model.named_modules():
+                        if "linear" in name.lower() and hasattr(module, "weight"):
+                            if module.weight.shape[0] == module.weight.shape[1]:
+                                s0_layers.append((name, module))
+                                if len(s0_layers) >= 10:
+                                    break
+
+                if not s0_layers:
+                    raise ValueError("No S0-compatible layers found in model")
+
+                s0_optimizer = torch.optim.Adam(
+                    [p for _, m in s0_layers for p in m.parameters() if p.requires_grad],
+                    lr=lr_value,
+                )
+
+                s0_steps = max_steps if max_steps and max_steps > 0 else 20
+                s0_loss_sum = 0.0
+
+                for step in range(s0_steps):
+                    batch = dataset[step % len(dataset)] if hasattr(dataset, "__getitem__") else None
+                    if batch is None:
+                        break
+
+                    input_ids = batch.get("input_ids")
+                    if input_ids is not None:
+                        if not isinstance(input_ids, torch.Tensor):
+                            input_ids = torch.tensor(input_ids)
+                        input_ids = input_ids.unsqueeze(0).to(model.device)
+
+                        outputs = model(input_ids, labels=input_ids)
+                        loss = outputs.loss
+
+                        s0_optimizer.zero_grad()
+                        loss.backward()
+                        s0_optimizer.step()
+
+                        s0_loss_sum += loss.item()
+                        avg_loss = s0_loss_sum / (step + 1)
+
+                        progress = trainer.get_training_progress()
+                        progress.loss = avg_loss
+                        progress.current_step = step + 1
+                        progress.total_steps = s0_steps
+
+                        _send_status(
+                            event_queue,
+                            f"S0 step {step + 1}/{s0_steps} | loss: {avg_loss:.4f}",
+                        )
+
+                torch.save(
+                    {name: m.state_dict() for name, m in s0_layers},
+                    s0_states_path,
+                )
+
+                _send_status(
+                    event_queue,
+                    f"S0 Tuning complete. States saved to {s0_states_path}",
+                )
+                event_queue.put({"type": "complete", "output_dir": s0_output_dir, "ts": time.time()})
+                return
+
+            except Exception as e:
+                event_queue.put(
+                    {
+                        "type": "error",
+                        "error": f"S0 Tuning failed: {str(e)}",
+                        "stack": str(e),
+                        "ts": time.time(),
+                    }
+                )
+                return
+
         _send_status(
             event_queue,
             f'Training "{model_name}"'

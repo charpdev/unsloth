@@ -361,6 +361,9 @@ export function ModelSelectionStep() {
                 <SelectItem value="lora">LoRA (16-bit)</SelectItem>
                 <SelectItem value="full">Full Fine-tune</SelectItem>
                 <SelectItem value="cpt">Continued Pretraining</SelectItem>
+                <SelectItem value="s0">S0 Tuning</SelectItem>
+                <SelectItem value="muon">Muon Optimizer</SelectItem>
+                <SelectItem value="grpo">GRPO</SelectItem>
               </SelectContent>
             </Select>
           </div>

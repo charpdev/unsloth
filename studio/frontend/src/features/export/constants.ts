@@ -75,6 +75,9 @@ export const METHOD_LABELS: Record<TrainingMethod, string> = {
   lora: "LoRA",
   full: "Full Fine-tune",
   cpt: "Continued Pretraining",
+  s0: "S0 Tuning",
+  muon: "Muon Optimizer",
+  grpo: "GRPO",
 };
 
 export const GUIDE_STEPS = [
