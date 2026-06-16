@@ -401,7 +401,7 @@ class UnslothTrainer:
             "fp16": not is_bfloat16_supported(),
             "bf16": is_bfloat16_supported(),
             "logging_steps": 1,
-            "optim": "adamw_torch" if use_muon else optim_value,
+            "optim": optim_value,
             "weight_decay": weight_decay,
             "lr_scheduler_type": lr_scheduler_type,
             "seed": random_seed,
