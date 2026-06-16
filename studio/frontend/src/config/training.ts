@@ -90,6 +90,7 @@ export const OPTIMIZER_OPTIONS: ReadonlyArray<{ value: string; label: string }> 
   { value: "paged_adamw_32bit", label: "Paged AdamW 32-bit" },
   { value: "adamw_torch", label: "AdamW (PyTorch)" },
   { value: "adamw_torch_fused", label: "AdamW (PyTorch Fused)" },
+  { value: "muon", label: "Muon" },
 ];
 
 export const LR_SCHEDULER_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
