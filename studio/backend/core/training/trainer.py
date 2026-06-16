@@ -3221,7 +3221,7 @@ except ImportError:
                 lr_scheduler_type_value = training_args.get("lr_scheduler_type", "cosine")
                 config_args.update(
                     {
-                        "optim": optim_value,
+                        "optim": "adamw_torch" if use_muon else optim_value,
                         "lr_scheduler_type": lr_scheduler_type_value,
                         "gradient_checkpointing": True,
                         "gradient_checkpointing_kwargs": {"use_reentrant": False},
