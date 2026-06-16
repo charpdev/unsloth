@@ -3243,7 +3243,7 @@ except ImportError:
                     logger.info("Configuring text model training parameters\n")
                 config_args.update(
                     {
-                        "optim": optim_value,
+                        "optim": "adamw_torch" if use_muon else optim_value,
                         "lr_scheduler_type": lr_scheduler_type_value,
                         "dataset_text_field": "text",
                     }
