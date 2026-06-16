@@ -619,24 +619,6 @@ export function ModelSection() {
                     {t("studio.model.fullFineTune")}
                   </span>
                 </SelectItem>
-                <SelectItem value="s0">
-                  <span className="flex items-center gap-2">
-                    <span className="size-2 shrink-0 rounded-full bg-teal-400" />
-                    S0 Tuning
-                  </span>
-                </SelectItem>
-                <SelectItem value="muon">
-                  <span className="flex items-center gap-2">
-                    <span className="size-2 shrink-0 rounded-full bg-pink-400" />
-                    Muon Optimizer
-                  </span>
-                </SelectItem>
-                <SelectItem value="grpo">
-                  <span className="flex items-center gap-2">
-                    <span className="size-2 shrink-0 rounded-full bg-indigo-400" />
-                    GRPO
-                  </span>
-                </SelectItem>
                 <SelectItem value="cpt">
                   <span className="flex items-center gap-2">
                     <span

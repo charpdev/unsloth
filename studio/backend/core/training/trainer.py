@@ -31,6 +31,13 @@ if sys.platform in ("win32", "darwin"):
         sys.path.insert(0, _compile_cache)
 
 import torch
+
+# Muon optimizer support
+try:
+    from forge.muon_optimizer import Muon
+    MUON_AVAILABLE = True
+except ImportError:
+    MUON_AVAILABLE = False
 from utils.hardware import (
     clear_gpu_cache,
     safe_num_proc,
@@ -1177,6 +1184,13 @@ class UnslothTrainer:
         instance and class level and strip non-TransformersKwargs params.
         """
         import torch
+
+# Muon optimizer support
+try:
+    from forge.muon_optimizer import Muon
+    MUON_AVAILABLE = True
+except ImportError:
+    MUON_AVAILABLE = False
         import torch.nn as nn
         from transformers.models.csm.modeling_csm import (
             CsmForConditionalGeneration,
@@ -1345,6 +1359,13 @@ class UnslothTrainer:
         from transformers import AutoProcessor
         from datasets import Audio
         import torch
+
+# Muon optimizer support
+try:
+    from forge.muon_optimizer import Muon
+    MUON_AVAILABLE = True
+except ImportError:
+    MUON_AVAILABLE = False
 
         processor = AutoProcessor.from_pretrained(
             self.model_name,
@@ -1530,6 +1551,13 @@ class UnslothTrainer:
         special tokens, train on full sequence (no label masking).
         """
         import torch
+
+# Muon optimizer support
+try:
+    from forge.muon_optimizer import Muon
+    MUON_AVAILABLE = True
+except ImportError:
+    MUON_AVAILABLE = False
         import torchaudio.transforms as T
 
         SNAC_MODEL_NAME = "hubertsiuzdak/snac_24khz"
@@ -1719,6 +1747,13 @@ class UnslothTrainer:
         with dataset_text_field="text".
         """
         import torch
+
+# Muon optimizer support
+try:
+    from forge.muon_optimizer import Muon
+    MUON_AVAILABLE = True
+except ImportError:
+    MUON_AVAILABLE = False
         import numpy as np
         import torchaudio.transforms as T
 
@@ -1942,6 +1977,13 @@ class UnslothTrainer:
         import io
         import tempfile
         import torch
+
+# Muon optimizer support
+try:
+    from forge.muon_optimizer import Muon
+    MUON_AVAILABLE = True
+except ImportError:
+    MUON_AVAILABLE = False
         import numpy as np
         import soundfile as sf
         from datasets import Dataset as HFDataset
@@ -3150,6 +3192,24 @@ class UnslothTrainer:
             # Model-specific params: use training_args optim/lr_scheduler_type if given, else defaults
             optim_value = training_args.get("optim", "adamw_8bit")
             lr_scheduler_type_value = training_args.get("lr_scheduler_type", "linear")
+            
+            # Muon optimizer support
+            use_muon = False
+            muon_optimizer = None
+            if optim_value == "muon" and MUON_AVAILABLE:
+                use_muon = True
+                logger.info("Using Muon optimizer")
+                muon_lr = training_args.get("learning_rate", 2e-4)
+                muon_momentum = training_args.get("muon_momentum", 0.95)
+                muon_weight_decay = training_args.get("weight_decay", 0.01)
+                muon_optimizer = Muon(
+                    self.model.parameters(),
+                    lr=muon_lr,
+                    momentum=muon_momentum,
+                    weight_decay=muon_weight_decay,
+                    nesterov=True,
+                )
+                optim_value = "adamw_torch"
 
             if (self.is_vlm or self.is_audio_vlm) and not raw_text_mode:
                 # Vision / audio VLM config (both need skip_prepare_dataset +
@@ -3300,7 +3360,9 @@ class UnslothTrainer:
                     }
                     if eval_dataset is not None:
                         trainer_kwargs["eval_dataset"] = eval_dataset
-                    self.trainer = SFTTrainer(**trainer_kwargs)
+                    # Add Muon optimizer if using it
+                    if use_muon and muon_optimizer is not None:
+                        trainer_kwargs["optimizers"] = (muon_optimizer, None)
                 # Restore full processor so checkpoints include
                 # preprocessor_config.json (needed for GGUF export).
                 if sft_tokenizer is not self.tokenizer:
